@@ -82,6 +82,7 @@ prophet <- function(df = NULL,
                     weekly.seasonality = 'auto',
                     daily.seasonality = 'auto',
                     holidays = NULL,
+                    seasonality.priors = NULL,   # added
                     seasonality.prior.scale = 10,
                     holidays.prior.scale = 10,
                     changepoint.prior.scale = 0.05,
@@ -105,6 +106,7 @@ prophet <- function(df = NULL,
     weekly.seasonality = weekly.seasonality,
     daily.seasonality = daily.seasonality,
     holidays = holidays,
+    seasonality.priors = seasonality.priors,
     seasonality.prior.scale = seasonality.prior.scale,
     changepoint.prior.scale = changepoint.prior.scale,
     holidays.prior.scale = holidays.prior.scale,
@@ -888,6 +890,7 @@ logistic_growth_init <- function(df) {
 #'
 #' @export
 fit.prophet <- function(m, df, ...) {
+  # TODO: provide method for incorporating priors
   if (!is.null(m$history)) {
     stop("Prophet object can only be fit once. Instantiate a new object.")
   }
@@ -931,11 +934,17 @@ fit.prophet <- function(m, df, ...) {
     dat$cap <- history$cap_scaled  # Add capacities to the Stan data
     kinit <- logistic_growth_init(history)
   }
-
+  
+  growth_str <- m$growth
+  if (!is.null(m$seasonality.priors)) {
+    dat$mu <- m$seasonality.priors
+    growth_str <- paste0("prior_seasonality_", growth_str)
+  }
+  
   if (exists(".prophet.stan.models")) {
-    model <- .prophet.stan.models[[m$growth]]
+    model <- .prophet.stan.models[[growth_str]]
   } else {
-    model <- get_prophet_stan_model(m$growth)
+    model <- get_prophet_stan_model(growth_str)
   }
 
   stan_init <- function() {
